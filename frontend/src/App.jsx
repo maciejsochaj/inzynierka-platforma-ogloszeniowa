@@ -1,218 +1,248 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom'
+import HomePage from './pages/HomePage'
+import AdDetails from './pages/AdDetails'
+import ProfilePage from './pages/ProfilePage'
+import AdminPage from './pages/AdminPage'
+import AuthModal from './components/AuthModal'
+import './App.css'
+
+function Header({ showForm, setShowForm, currentUser, onOpenAuth, onLogout }) {
+  const location = useLocation()
+  const isHomePage = location.pathname === '/'
+  const isAdmin = currentUser && currentUser.role === 'ROLE_ADMIN'
+
+  return (
+    <header style={styles.nav}>
+      <div style={styles.navContainer}>
+        <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <div style={styles.brand}>
+            <span style={{ fontSize: '28px' }}>📢</span>
+            <div>
+              <h1 style={styles.logoText}>Portal<span style={{ color: '#23e5db' }}>Ogłoszeniowy</span></h1>
+              <span style={styles.badge}>Projekt Inżynierski</span>
+            </div>
+          </div>
+        </Link>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* PRZYCISK PANELU ADMINA DLA ROLE_ADMIN */}
+          {isAdmin && (
+            <Link to="/admin" style={styles.adminNavBtn} title="Przejdź do panelu administracyjnego">
+              🛡️ Panel Admina
+            </Link>
+          )}
+
+          {currentUser ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Link to="/profil" style={styles.userProfileLink} title="Przejdź do swojego profilu">
+                <span>👤 Witaj, <strong>{currentUser.fullName}</strong></span>
+                <span style={styles.profileBadge}>Mój profil</span>
+              </Link>
+
+              <button onClick={onLogout} style={styles.logoutBtn}>
+                Wyloguj
+              </button>
+            </div>
+          ) : (
+            <button onClick={onOpenAuth} style={styles.loginBtn}>
+              Zaloguj się
+            </button>
+          )}
+
+          {isHomePage && (
+            <button
+              onClick={() => {
+                if (!currentUser) {
+                  alert('Musisz być zalogowany, aby dodać ogłoszenie!')
+                  onOpenAuth()
+                  return
+                }
+                setShowForm(!showForm)
+              }}
+              style={{
+                ...styles.toggleBtn,
+                backgroundColor: showForm ? '#ef4444' : '#23e5db',
+                color: showForm ? '#ffffff' : '#002f34'
+              }}
+            >
+              {showForm ? '✕ Zamknij formularz' : '+ Dodaj ogłoszenie'}
+            </button>
+          )}
+        </div>
+      </div>
+    </header>
+  )
+}
 
 function App() {
-  const [ads, setAds] = useState([])
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    price: '',
-    category: 'Elektronika',
-    location: '',
-    contactPhone: ''
-  })
-
-  // Pobieranie ogłoszeń z bazy
-  const fetchAds = () => {
-    fetch('http://localhost:8080/api/advertisements')
-      .then((res) => res.json())
-      .then((data) => setAds(data))
-      .catch((err) => console.error('Błąd pobierania:', err))
-  }
+  const [showForm, setShowForm] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
 
   useEffect(() => {
-    fetchAds()
+    const savedUser = localStorage.getItem('user')
+    const token = localStorage.getItem('token')
+    if (savedUser && token) {
+      setCurrentUser(JSON.parse(savedUser))
+    }
   }, [])
 
-  // Obsługa pól formularza
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData({ ...formData, [name]: value })
-  }
-
-  // Zapis nowego ogłoszenia do bazy
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!formData.title || !formData.price || !formData.location) {
-      alert('Uzupełnij wymagane pola (tytuł, cena, lokalizacja)!')
-      return
-    }
-
-    fetch('http://localhost:8080/api/advertisements', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...formData,
-        price: parseFloat(formData.price)
-      })
-    })
-      .then((res) => res.json())
-      .then(() => {
-        setFormData({
-          title: '',
-          description: '',
-          price: '',
-          category: 'Elektronika',
-          location: '',
-          contactPhone: ''
-        })
-        fetchAds()
-      })
-      .catch((err) => console.error('Błąd dodawania:', err))
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setCurrentUser(null)
+    setShowForm(false)
+    window.location.reload()
   }
 
   return (
-    <div style={{ maxWidth: '900px', margin: '30px auto', fontFamily: 'sans-serif', padding: '0 20px' }}>
-      <header style={{ borderBottom: '2px solid #eee', paddingBottom: '15px', marginBottom: '30px' }}>
-        <h1 style={{ color: '#2c3e50', margin: 0 }}>Portal Ogłoszeniowy</h1>
-        <p style={{ color: '#7f8c8d', margin: '5px 0 0 0' }}>Projekt Inżynierski</p>
-      </header>
+    <BrowserRouter>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f2f4f5', fontFamily: 'system-ui, sans-serif' }}>
+        <Header
+          showForm={showForm}
+          setShowForm={setShowForm}
+          currentUser={currentUser}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onLogout={handleLogout}
+        />
 
-      {/* Formularz dodawania ogłoszenia */}
-      <section style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '40px' }}>
-        <h2 style={{ marginTop: 0, fontSize: '20px', color: '#333' }}>Dodaj nowe ogłoszenie</h2>
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Tytuł *</label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-              placeholder="np. Rower górski Trek"
-            />
-          </div>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <HomePage
+                showForm={showForm}
+                setShowForm={setShowForm}
+                currentUser={currentUser}
+                onOpenAuth={() => setIsAuthModalOpen(true)}
+              />
+            }
+          />
+          <Route path="/ogloszenie/:id" element={<AdDetails currentUser={currentUser} />} />
+          <Route
+            path="/profil"
+            element={
+              <ProfilePage
+                currentUser={currentUser}
+                onOpenAuth={() => setIsAuthModalOpen(true)}
+              />
+            }
+          />
+          <Route
+            path="/admin"
+            element={<AdminPage currentUser={currentUser} />}
+          />
+        </Routes>
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Kategoria *</label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-            >
-              <option value="Elektronika">Elektronika</option>
-              <option value="Motoryzacja">Motoryzacja</option>
-              <option value="Nieruchomości">Nieruchomości</option>
-              <option value="Dom i Ogród">Dom i Ogród</option>
-              <option value="Inne">Inne</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Cena (PLN) *</label>
-            <input
-              type="number"
-              step="0.01"
-              name="price"
-              value={formData.price}
-              onChange={handleChange}
-              style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-              placeholder="np. 1500.00"
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Lokalizacja (miasto) *</label>
-            <input
-              type="text"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-              placeholder="np. Warszawa"
-            />
-          </div>
-
-          <div style={{ gridColumn: 'span 2' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Telefon kontaktowy</label>
-            <input
-              type="text"
-              name="contactPhone"
-              value={formData.contactPhone}
-              onChange={handleChange}
-              style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-              placeholder="np. 600700800"
-            />
-          </div>
-
-          <div style={{ gridColumn: 'span 2' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Opis</label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows="3"
-              style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-              placeholder="Szczegółowy opis przedmiotu..."
-            />
-          </div>
-
-          <div style={{ gridColumn: 'span 2' }}>
-            <button
-              type="submit"
-              style={{
-                background: '#27ae60',
-                color: '#fff',
-                border: 'none',
-                padding: '10px 20px',
-                fontSize: '16px',
-                borderRadius: '5px',
-                cursor: 'pointer'
-              }}
-            >
-              Dodaj ogłoszenie
-            </button>
-          </div>
-        </form>
-      </section>
-
-      {/* Lista ogłoszeń z bazy */}
-      <section>
-        <h2 style={{ fontSize: '20px', color: '#333' }}>Aktualne ogłoszenia ({ads.length})</h2>
-        {ads.length === 0 ? (
-          <p style={{ color: '#888' }}>Brak ogłoszeń w bazie.</p>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '20px' }}>
-            {ads.map((ad) => (
-              <div
-                key={ad.id}
-                style={{
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  background: '#fff',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                }}
-              >
-                <span
-                  style={{
-                    background: '#e0f2fe',
-                    color: '#0369a1',
-                    fontSize: '12px',
-                    padding: '3px 8px',
-                    borderRadius: '12px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  {ad.category}
-                </span>
-                <h3 style={{ margin: '10px 0 5px 0', fontSize: '18px' }}>{ad.title}</h3>
-                <p style={{ color: '#27ae60', fontSize: '20px', fontWeight: 'bold', margin: '5px 0' }}>
-                  {Number(ad.price).toFixed(2)} PLN
-                </p>
-                <p style={{ color: '#555', fontSize: '14px', margin: '5px 0 10px 0' }}>{ad.description}</p>
-                <div style={{ borderTop: '1px solid #eee', paddingTop: '8px', fontSize: '12px', color: '#888' }}>
-                  <div>📍 {ad.location}</div>
-                  {ad.contactPhone && <div>📞 {ad.contactPhone}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onAuthSuccess={(userData) => {
+            setCurrentUser(userData)
+          }}
+        />
+      </div>
+    </BrowserRouter>
   )
+}
+
+const styles = {
+  nav: {
+    backgroundColor: '#002f34',
+    color: '#ffffff',
+    padding: '14px 24px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+    width: '100%'
+  },
+  navContainer: {
+    maxWidth: '1280px',
+    margin: '0 auto',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  brand: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    cursor: 'pointer'
+  },
+  logoText: {
+    margin: 0,
+    fontSize: '22px',
+    fontWeight: '800'
+  },
+  badge: {
+    fontSize: '11px',
+    color: '#a3b8b9',
+    textTransform: 'uppercase',
+    letterSpacing: '1px'
+  },
+  adminNavBtn: {
+    backgroundColor: '#dc2626',
+    color: '#ffffff',
+    padding: '7px 12px',
+    borderRadius: '6px',
+    fontSize: '12px',
+    fontWeight: '800',
+    textDecoration: 'none',
+    boxShadow: '0 2px 4px rgba(220, 38, 38, 0.3)'
+  },
+  userProfileLink: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    color: '#ffffff',
+    textDecoration: 'none',
+    backgroundColor: '#0a3d43',
+    padding: '7px 12px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    border: '1px solid #134e55',
+    transition: 'all 0.2s ease'
+  },
+  profileBadge: {
+    backgroundColor: '#23e5db',
+    color: '#002f34',
+    fontSize: '10px',
+    fontWeight: '800',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    textTransform: 'uppercase'
+  },
+  loginBtn: {
+    backgroundColor: 'transparent',
+    color: '#ffffff',
+    border: '1px solid #23e5db',
+    padding: '9px 18px',
+    borderRadius: '4px',
+    fontWeight: '700',
+    fontSize: '13px',
+    cursor: 'pointer'
+  },
+  logoutBtn: {
+    backgroundColor: '#334155',
+    color: '#ffffff',
+    border: 'none',
+    padding: '8px 12px',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer'
+  },
+  toggleBtn: {
+    border: 'none',
+    padding: '10px 20px',
+    borderRadius: '4px',
+    fontWeight: '700',
+    fontSize: '14px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease'
+  }
 }
 
 export default App
